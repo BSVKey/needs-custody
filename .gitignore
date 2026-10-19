@@ -1,0 +1,8 @@
+node_modules/
+*.log
+.env
+.env.*
+*.key
+*.pem
+demo-output.txt
+BRIEF.md
