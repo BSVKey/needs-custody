@@ -9,7 +9,22 @@ node demo.mjs     # one day at a fictional camp, all five needs, with tampering 
 node --test       # 13 tests
 ```
 
-Zero dependencies, Node 18 or later.
+Zero dependencies, Node 18 or later. Live page with an in-browser verifier:
+**https://needs.bsvkey.com**
+
+## Anchored run: check it yourself
+
+`runs/2026-10-19/` holds a full demo day (618 signed records). Its batch root
+`162d44e9...33e8` is anchored on Bitcoin BSV mainnet in tx
+[`edf5240c297f79ead29476feb1ab092470cb09f31a5b08dd28535b604762bfa7`](https://whatsonchain.com/tx/edf5240c297f79ead29476feb1ab092470cb09f31a5b08dd28535b604762bfa7).
+
+```
+node bin/verify.mjs --run runs/2026-10-19 --anchor edf5240c297f79ead29476feb1ab092470cb09f31a5b08dd28535b604762bfa7
+```
+
+Make and anchor your own day: `node demo.mjs --out runs/<day>`, then
+`WALLET_JSON=<wallet.json> node bin/anchor.mjs --run runs/<day>` (needs
+`npm i --no-save @bsv/sdk`). It signs but never broadcasts; sending is a separate step.
 
 ## What each module proves
 
@@ -27,8 +42,8 @@ Zero dependencies, Node 18 or later.
 - The demo signs with Ed25519. Production uses the same content addressing with the
   Bitcoin Signed Message envelope, swapped in behind `lib/keys.mjs`, as in the other
   custody repos.
-- `anchor.mjs` builds the script but does not broadcast it. Broadcasting goes through the
-  existing ARC path.
+- `anchor.mjs` builds the script and `bin/anchor.mjs` signs it; neither broadcasts. Sending is
+  a separate, deliberate step.
 - A signature proves who said something, not that it is true. A bribed water committee
   can sign for water it never got. The design limits each party to their own signature,
   so a lie traces back to one named signer, and a sensor reading is still required for

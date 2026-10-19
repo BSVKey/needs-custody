@@ -3,7 +3,8 @@
 // needs: safe water delivered, water bought by the liter, food aid handed out, a
 // drought payout, and all of it recorded offline then anchored once on Bitcoin BSV.
 // Each section verifies the honest records, then shows tampering being caught.
-//   node demo.mjs
+//   node demo.mjs                 print the day
+//   node demo.mjs --out runs/X   also save the day's records + batch for anchoring
 import { genKeypair } from "./lib/keys.mjs";
 import { H } from "./src/common.mjs";
 import { SPHERE, qualityReading, waterDelivery, waterReceived, verifyWaterDelivery, coverage } from "./src/water.mjs";
@@ -11,7 +12,9 @@ import { openChannel, meterState, kioskAccept, settle } from "./src/meter.mjs";
 import { householdTag, aidManifest, entitlementProof, aidHandoff, aidHandout, verifyAid } from "./src/aid.mjs";
 import { droughtPolicy, rainReading, evaluate, payout, verifyPayout } from "./src/parametric.mjs";
 import { appendEntry, reassemble } from "./src/offline.mjs";
-import { anchorBatch, batchProof, inBatch } from "./src/anchor.mjs";
+import { anchorBatch, batchProof, inBatch, ANCHOR_TAG } from "./src/anchor.mjs";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 const T0 = Date.parse("2026-10-19T06:00:00Z");
 const SITE = "camp-north", POPULATION = 2400;
@@ -137,4 +140,15 @@ out(`  ${batch.count} signed records -> Merkle root ${batch.root.slice(0, 16)}..
 out(`  Locking script (${batch.scriptHex.length / 2} bytes): ${batch.scriptHex}`);
 const k = allRecords.indexOf(water[0].delivery);
 out(`  Proof that delivery WD-1 is in the batch: ${batchProof(batch, k).length} hashes -> ${inBatch(batch.root, water[0].delivery.claimId, k, batchProof(batch, k)) ? "PASS" : "FAIL"}`);
-out(`  (Script built, not broadcast. Broadcasting uses the existing ARC path.)`);
+out(`  (Script built here; bin/anchor.mjs signs it, broadcasting is a separate step.)`);
+
+const outAt = process.argv.indexOf("--out");
+if (outAt > 0) {
+  const dir = process.argv[outAt + 1];
+  if (!dir) throw new Error("--out needs a directory");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "records.json"), JSON.stringify(allRecords, null, 1) + "\n");
+  const meta = { tag: ANCHOR_TAG, root: batch.root, count: batch.count, scriptHex: batch.scriptHex, createdAt: new Date().toISOString() };
+  writeFileSync(join(dir, "batch.json"), JSON.stringify(meta, null, 2) + "\n");
+  out(`  Saved ${batch.count} records and the batch to ${dir}`);
+}

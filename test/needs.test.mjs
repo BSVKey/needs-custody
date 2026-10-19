@@ -175,3 +175,12 @@ test("anchor: 50-byte OP_FALSE OP_RETURN script; inclusion proofs bind to positi
   assert.equal(inBatch(b.root, ids[3], 4, batchProof(b, 3)), false);
   assert.equal(inBatch(b.root, "0x" + "f".repeat(64), 3, batchProof(b, 3)), false);
 });
+
+test("anchor: on-chain check accepts only the exact tag + root script", async () => {
+  const { opReturnCarriesRoot } = await import("../src/anchor.mjs");
+  const b = anchorBatch(["0x" + "1".repeat(64), "0x" + "2".repeat(64)]);
+  const tx = (hex) => ({ vout: [{ scriptPubKey: { hex: "76a914" + "0".repeat(40) + "88ac" } }, { scriptPubKey: { hex } }] });
+  assert.equal(opReturnCarriesRoot(tx(b.scriptHex), b.root), true);
+  assert.equal(opReturnCarriesRoot(tx(b.scriptHex), "f".repeat(64)), false);
+  assert.equal(opReturnCarriesRoot(tx("006a20" + b.root), b.root), false); // root without the tag
+});

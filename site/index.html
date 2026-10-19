@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Needs Custody · BSVKey</title>
+<meta name="description" content="Signed receipts for the most basic human needs: safe water delivered, water sold by the liter, food aid handed out, drought payouts and offline field logs, anchored on Bitcoin BSV. Open source under Apache-2.0.">
+<meta property="og:title" content="Needs Custody: proof that water, food and aid arrived">
+<meta property="og:description" content="Signed receipts at every handoff, verifiable by anyone, anchored daily on Bitcoin BSV. Open source.">
+<meta property="og:url" content="https://needs.bsvkey.com/">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230E7C86'/%3E%3Cpath d='M16 6c4 5 7 9 7 13a7 7 0 0 1-14 0c0-4 3-8 7-13z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css?v=1">
+<link rel="stylesheet" href="/needs.css?v=1">
+</head>
+<body data-txid="edf5240c297f79ead29476feb1ab092470cb09f31a5b08dd28535b604762bfa7">
+<header class="top">
+  <div class="wrap bar">
+    <a class="brand" href="/">BSVKey <span>· Needs Custody</span></a>
+    <nav><a href="#needs">Five needs</a><a href="#verify">Verify a day</a><a class="nav-opt" href="#limits">Limits</a><a class="btn small" href="https://github.com/BSVKey/needs-custody">GitHub</a></nav>
+  </div>
+</header>
+
+<main>
+<section class="hero wrap">
+  <p class="eyebrow">Water · food · shelter · communication</p>
+  <h1>Proof that the water, food and money actually arrived.</h1>
+  <p class="lede">In most shortages the supply exists. It fails between the donor and the person: a truck that bills for 10,000 liters and delivers 7,200, water that arrives unchlorinated, a sack of grain sold before the distribution point. Needs Custody puts a signed receipt on every handoff, so anyone can check where it failed and who signed.</p>
+  <div class="cta">
+    <a class="btn" href="#verify">Verify a real anchored day</a>
+    <a class="btn ghost" href="https://github.com/BSVKey/needs-custody">Open source on GitHub</a>
+  </div>
+</section>
+
+<section id="needs" class="wrap">
+  <h2>Five needs, one receipt format</h2>
+  <div class="grid3 needs">
+    <article><p class="tag">Water, delivered</p><h3>Only safe, received liters count</h3><p>A quality sensor, the truck operator and the site's water committee each sign. Liters count only if the water met the Sphere standards (chlorine, turbidity, E. coli) and the site confirmed receiving them, measured against 15 liters per person per day.</p></article>
+    <article><p class="tag">Water, bought</p><h3>Pay by the milliliter</h3><p>A prepaid kiosk channel bills a partial container exactly. Only the buyer's key can raise what is owed, so the kiosk can't overcharge. The newest signed state settles, so the buyer can't underpay.</p></article>
+    <article><p class="tag">Food</p><h3>Loss names its holder</h3><p>The receiver signs the weight at every handoff, so missing food is pinned to whoever held it. Households appear only as salted tags under one Merkle root. Each handout proves its entitlement, and double or unlisted claims are refused.</p></article>
+    <article><p class="tag">Shelter money</p><h3>Drought payouts with no adjuster</h3><p>A policy pays when enough independent rainfall sources agree the trigger was hit. Anyone can re-run the decision. A source that signs two values is excluded, and a payout to another address fails.</p></article>
+    <article><p class="tag">Communication</p><h3>Works offline, syncs later</h3><p>Field devices keep a hash-linked log with no connection. When a link returns, shuffled and resent records reassemble, and a deleted, edited or forked entry is caught.</p></article>
+    <article><p class="tag">All of it</p><h3>One anchor a day</h3><p>Every record of the day goes into one Merkle root in a 50-byte Bitcoin BSV output, so a single small transaction timestamps the whole day. Any record can be proven part of it with a few hashes.</p></article>
+  </div>
+</section>
+
+<section id="verify" class="wrap verify">
+  <h2>Verify an anchored day yourself</h2>
+  <p class="lede small">A full demo day at a fictional camp of 2,400 people: six water deliveries (one short, one unsafe), a kiosk channel, food aid to 600 households with a 150 kg loss in transit, a drought trigger, and the offline log. 618 signed records, anchored on Bitcoin BSV mainnet. Your browser checks every signature, rebuilds the root, and reads the transaction from WhatsOnChain. Nothing is sent anywhere.</p>
+  <div class="cta"><button id="verify-btn" class="btn" type="button">Verify in my browser</button>
+    <a class="btn ghost" href="https://whatsonchain.com/tx/edf5240c297f79ead29476feb1ab092470cb09f31a5b08dd28535b604762bfa7">Anchor transaction</a>
+    <a class="btn ghost" href="/day/records.json">Raw records (JSON)</a></div>
+  <ul id="results" class="results" aria-live="polite"></ul>
+  <p class="note">Same check from a terminal: <code class="mono">node bin/verify.mjs --run runs/2026-10-19 --anchor edf5240c...bfa7</code></p>
+</section>
+
+<section id="limits" class="wrap proof">
+  <h2>What this does not prove</h2>
+  <ul class="facts">
+    <li><strong>A signature is not the truth.</strong> It proves who said something. A driver and a committee who collude can still sign for water that never came, but each lie now traces to a named signer, and "safe" still needs a sensor reading.</li>
+    <li><strong>Sensors drift.</strong> The quality check is only as good as sensor calibration and maintenance.</li>
+    <li><strong>Salts must be guarded.</strong> Household tags are salted hashes. A leaked salt plus a guessable ID format would expose the list.</li>
+    <li><strong>Demo data.</strong> The anchored day is a fictional camp with demo keys (Ed25519). Production uses Bitcoin Signed Message keys over the same record format. No field pilot has run yet.</li>
+  </ul>
+</section>
+
+<section class="wrap request">
+  <h2>Run a pilot</h2>
+  <p>One site, one module, 90 days, on the records your teams already keep. For humanitarian networks, water operators, food aid programs and risk pools.</p>
+  <a class="btn" href="mailto:embryospace@gmail.com?subject=Needs%20Custody%20pilot">Contact us</a>
+</section>
+</main>
+
+<footer class="wrap foot"><p>Needs Custody is open source under Apache-2.0. Copyright 2026 Embryo Space Inc. (DBA BSVKey).</p></footer>
+<script src="/verify.js?v=1"></script>
+</body>
+</html>
