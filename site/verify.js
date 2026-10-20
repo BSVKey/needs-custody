@@ -57,20 +57,42 @@
   };
   const icon = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
 
+  // Phones show each card collapsed to icon, name and stamp, with an arrow to open it;
+  // cards with a problem start open so issues show without tapping. Wider screens show
+  // every card open and the arrow is hidden.
+  const narrow = window.matchMedia("(max-width: 640px)");
+  function applyMode() {
+    for (const d of document.querySelectorAll("details.obj")) d.open = !narrow.matches || d.classList.contains("warn") || d.classList.contains("bad");
+  }
+  narrow.addEventListener?.("change", applyMode);
+
   // tone: good | warn | bad | wait
-  function card({ icon: ic, title, lines, stamp, tone }) {
-    const a = document.createElement("article");
-    a.className = `obj ${tone}`;
-    a.innerHTML = `<div class="obj-icon">${icon(ic)}</div><div class="obj-body"><h3></h3><ul></ul></div><p class="stamp"></p>`;
-    a.querySelector("h3").textContent = title;
-    for (const l of lines) { const li = document.createElement("li"); li.textContent = l; a.querySelector("ul").append(li); }
-    a.querySelector(".stamp").textContent = stamp;
-    return a;
+  function card({ icon: ic, title, lines, stamp, tone, compact }) {
+    const d = document.createElement("details");
+    d.className = `obj ${tone}${compact ? " compact" : ""}`;
+    d.innerHTML = `<summary><span class="obj-icon">${icon(ic)}</span><span class="obj-head"><span class="obj-title"></span><span class="stamp"></span></span><span class="chev" aria-hidden="true"></span></summary><ul></ul>`;
+    d.querySelector(".obj-title").textContent = title;
+    d.querySelector(".stamp").textContent = stamp;
+    for (const l of lines) { const li = document.createElement("li"); li.textContent = l; d.querySelector("ul").append(li); }
+    d.querySelector("summary").addEventListener("click", (e) => { if (!narrow.matches) e.preventDefault(); });
+    return d;
+  }
+  function group(title, summary, cls) {
+    const g = document.createElement("div");
+    g.className = "group";
+    const h = document.createElement("div"); h.className = "group-head";
+    const t = document.createElement("h3"); t.textContent = title;
+    const s = document.createElement("p"); s.textContent = summary;
+    h.append(t, s);
+    const grid = document.createElement("div"); grid.className = cls;
+    g.append(h, grid);
+    return { el: g, grid };
   }
 
   // ---- reading the day as objects ---------------------------------------------------
   async function build() {
     const board = $("board"), status = $("status");
+    const population = Number(board.dataset.population) || 0;
     board.replaceChildren();
     status.textContent = "Checking every record...";
     let records, batch;
@@ -87,30 +109,44 @@
     const byId = new Map(records.map((r) => [r.claimId, r]));
     const altered = [...ok.values()].filter((v) => !v).length;
 
-    // Water trucks
+    // Water trucks: one compact card each, under a summary of the day's safe water.
+    const trucks = [];
+    let safeTrucks = 0, countedL = 0;
     for (const d of of("water-delivery/1")) {
       const rec = records.find((r) => r.kind === "water-received/1" && r.deliveryClaim === d.claimId);
       const q = byId.get(d.qualityId);
-      const lines = [`Billed ${fmt(d.liters)} L`, rec ? `Camp signed for ${fmt(rec.litersReceived)} L` : "Camp never signed for it"];
-      let stamp = "Safe and delivered", tone = "good";
+      const lines = [`Billed ${fmt(d.liters)} L`, rec ? `Signed for ${fmt(rec.litersReceived)} L` : "Never signed for"];
+      let stamp = "Safe", tone = "good";
       if (!allOk(d, rec, q)) { stamp = "Record altered"; tone = "bad"; }
       else if (q.frcMgL < 0.2 || q.turbidityNtu >= 5 || q.eColiCfu > 0) {
-        stamp = "Unsafe, not counted"; tone = "bad";
-        lines.push(q.frcMgL < 0.2 ? "Chlorine too low to be safe" : q.eColiCfu > 0 ? "Bacteria found" : "Water too cloudy");
+        stamp = "Unsafe"; tone = "bad";
+        lines.push(q.frcMgL < 0.2 ? "Chlorine too low" : q.eColiCfu > 0 ? "Bacteria found" : "Too cloudy");
       } else if (rec.litersReceived < d.liters * 0.98) {
-        stamp = `Short ${fmt(d.liters - rec.litersReceived)} L`; tone = "warn";
-      } else lines.push("Water tested clean");
-      board.append(card({ icon: "truck", title: `Water truck ${d.deliveryId.replace("WD-", "#")}`, lines, stamp, tone }));
+        stamp = `Short ${fmt(d.liters - rec.litersReceived)} L`; tone = "warn"; countedL += rec.litersReceived;
+      } else { safeTrucks++; countedL += rec.litersReceived; }
+      trucks.push(card({ icon: "truck", title: `Truck ${d.deliveryId.replace("WD-", "#")}`, lines, stamp, tone, compact: true }));
     }
+    if (trucks.length) {
+      const perPerson = population ? Math.round((countedL / population) * 10) / 10 : null;
+      const sum = `${safeTrucks} of ${trucks.length} safe and complete. ${fmt(countedL)} L of safe water counted` +
+        (perPerson !== null ? `, ${perPerson} L per person (15 L needed).` : ".");
+      const g = group("Water trucks", sum, "trucks");
+      g.grid.append(...trucks);
+      board.append(g.el);
+    }
+
+    const rest = group("Kiosk, food, drought cover and the seal", "", "others");
+    rest.el.querySelector("p").remove();
+    board.append(rest.el);
+    const add = (c) => rest.grid.append(c);
 
     // Kiosk
     const open = of("meter-open/1")[0], st = of("meter-state/1").sort((a, b) => b.seq - a.seq)[0];
     if (open && st) {
-      const liters = st.milliliters / 1000, paid = Math.ceil(st.owedMsat / 1000);
-      board.append(card({
-        icon: "tap", title: "Water kiosk", tone: allOk(open, st) ? "good" : "bad",
-        lines: [`${liters.toLocaleString("en-US")} L poured over ${st.seq} visits`, `Paid for exactly what was poured, ${fmt(paid)} sats`, `${fmt(open.depositSats - paid)} sats returned to the buyer`],
-        stamp: allOk(open, st) ? "Fair to both sides" : "Record altered",
+      const paid = Math.ceil(st.owedMsat / 1000), good = allOk(open, st);
+      add(card({
+        icon: "tap", title: "Water kiosk", tone: good ? "good" : "bad", stamp: good ? "Fair to both sides" : "Record altered",
+        lines: [`${(st.milliliters / 1000).toLocaleString("en-US")} L poured over ${st.seq} visits`, `Charged ${fmt(paid)} sats, exactly what was poured`, `${fmt(open.depositSats - paid)} sats refunded`],
       }));
     }
 
@@ -118,26 +154,26 @@
     const m = of("aid-manifest/1")[0], hand = of("aid-handoff/1"), outs = of("aid-handout/1");
     if (m) {
       const intact = allOk(m, ...hand, ...outs);
-      const lost = [];
-      let held = m.totalKg;
-      for (const h of hand) { if (held - h.kg > 0) lost.push(`${fmt(held - h.kg)} kg went missing while the ${h.from} had it`); held = h.kg; }
+      let held = m.totalKg, lost = 0, who = "";
+      for (const h of hand) { if (held - h.kg > 0) { lost += held - h.kg; who = h.from; } held = h.kg; }
       const served = new Set(outs.map((o) => o.tag)).size;
-      board.append(card({
-        icon: "sack", title: "Food aid", tone: !intact ? "bad" : lost.length ? "warn" : "good",
-        lines: [`${fmt(m.totalKg)} kg left the warehouse`, ...lost, `${served} of ${m.households} families received their ration`, "Every family checked against the list, without names"],
-        stamp: !intact ? "Record altered" : lost.length ? "Loss traced" : "All accounted for",
+      add(card({
+        icon: "sack", title: "Food aid", tone: !intact ? "bad" : lost ? "warn" : "good",
+        stamp: !intact ? "Record altered" : lost ? "Loss traced" : "All accounted for",
+        lines: [lost ? `${fmt(m.totalKg)} kg sent, ${fmt(lost)} kg missing with the ${who}` : `${fmt(m.totalKg)} kg sent, none missing`, `${served} of ${m.households} families served`, "Checked against the list, no names shown"],
       }));
     }
 
     // Rain
     const pol = of("policy/1")[0], rain = of("rain-reading/1"), pay = of("payout/1")[0];
     if (pol) {
-      const dry = rain.filter((r) => r.rainMm < pol.triggerMm);
-      const intact = allOk(pol, ...rain, ...(pay ? [pay] : []));
-      board.append(card({
+      const dry = rain.filter((r) => r.rainMm < pol.triggerMm), intact = allOk(pol, ...rain, ...(pay ? [pay] : []));
+      const mm = rain.map((r) => r.rainMm);
+      const list = mm.length > 1 ? `${mm.slice(0, -1).join(", ")} and ${mm[mm.length - 1]}` : `${mm[0]}`;
+      add(card({
         icon: "rain", title: "Drought cover", tone: intact ? "good" : "bad",
-        lines: [...rain.map((r) => `${r.source.replace(/-/g, " ")}: ${r.rainMm} mm of rain in ${r.windowDays} days`), `${dry.length} of ${rain.length} say it was dry enough (needed ${pol.quorum})`, pay ? `${(pay.payoutSats / 1e8).toLocaleString("en-US")} BSV released for shelter, no claim forms` : "No payout due"],
         stamp: !intact ? "Record altered" : pay ? "Paid automatically" : "Not triggered",
+        lines: [`Rain in ${pol.windowDays} days: ${list} mm`, `${dry.length} of ${rain.length} sources say drought (${pol.quorum} needed)`, pay ? `${(pay.payoutSats / 1e8).toLocaleString("en-US")} BSV released for shelter` : "No payout due"],
       }));
     }
 
@@ -145,11 +181,11 @@
     const root = await merkleRoot(records.map((r) => r.claimId));
     const script = "006a" + push(enc.encode(batch.tag)) + push(unhex(root));
     const sealMatches = root === batch.root && script === batch.scriptHex;
-    let sealLines = [`All ${fmt(records.length)} records from the day, sealed together`], sealTone = "wait", sealStamp = "Checking the public record...";
-    const seal = card({ icon: "seal", title: "Sealed in the public record", lines: sealLines, stamp: sealStamp, tone: sealTone });
-    board.append(seal);
-    const setSeal = (lines, stamp, tone) => { seal.replaceWith(card({ icon: "seal", title: "Sealed in the public record", lines: [...sealLines, ...lines], stamp, tone })); };
-    if (!sealMatches || altered) setSeal(["Something changed after it was sealed"], "Seal broken", "bad");
+    const base = [`${fmt(records.length)} receipts sealed together`];
+    let seal = card({ icon: "seal", title: "Public seal", lines: base, stamp: "Checking...", tone: "wait" });
+    add(seal);
+    const setSeal = (lines, stamp, tone) => { const n = card({ icon: "seal", title: "Public seal", lines: [...base, ...lines], stamp, tone }); seal.replaceWith(n); seal = n; };
+    if (!sealMatches || altered) setSeal(["Something changed after sealing"], "Seal broken", "bad");
     else {
       try {
         const res = await fetch(`${WOC}/tx/hash/${TXID}`);
@@ -159,14 +195,17 @@
         else if (!onChain) setSeal(["The public record holds a different seal"], "Seal broken", "bad");
         else {
           const when = tx.blocktime ? new Date(tx.blocktime * 1000).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : null;
-          setSeal([when ? `Sealed on Bitcoin BSV on ${when}` : "On Bitcoin BSV, waiting for its first block", "Nobody can change it now, including us"], "Seal intact", "good");
+          setSeal([when ? `Sealed on Bitcoin BSV, ${when}` : "On Bitcoin BSV, waiting for its first block", "Can't be changed, even by us"], "Seal intact", "good");
         }
       } catch { setSeal(["The public record didn't answer. Try again shortly."], "Not checked yet", "wait"); }
     }
 
+    applyMode();
     status.textContent = altered
-      ? `${altered} record${altered === 1 ? " was" : "s were"} changed after signing, and ${altered === 1 ? "it is" : "they are"} flagged below.`
-      : `Every record checked in your browser just now. Nothing was sent anywhere.`;
+      ? `${altered} receipt${altered === 1 ? " was" : "s were"} changed after signing, and ${altered === 1 ? "it is" : "they are"} flagged below.`
+      : "Every receipt checked in your browser just now. Nothing was sent anywhere.";
+    // Arriving on a link to this section: land on it now that the cards have their height.
+    if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
   }
 
   $("recheck").addEventListener("click", build);
