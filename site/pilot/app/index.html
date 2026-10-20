@@ -9,7 +9,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230E7C86'/%3E%3Cpath d='M16 6c4 5 7 9 7 13a7 7 0 0 1-14 0c0-4 3-8 7-13z' fill='%23fff'/%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css?v=1">
-<link rel="stylesheet" href="/pilot/pilot.css?v=1">
+<link rel="stylesheet" href="/pilot/pilot.css?v=3">
 </head>
 <body>
 <header class="top"><div class="wrap bar"><a class="brand" href="/pilot/app/">Needs Custody <span>· Field app</span></a></div></header>
@@ -20,13 +20,13 @@
   </section>
   <section id="main" class="panel" hidden>
     <div class="who">
-      <div><p class="eyebrow" id="site-name"></p><h1 id="who-name" style="margin:0"></h1><p class="fine" id="who-role" style="margin:4px 0 0"></p></div>
+      <div><p class="eyebrow" id="site-name"></p><h1 id="who-name"></h1><p class="fine" id="who-role"></p></div>
       <select id="switch" hidden aria-label="Switch person"></select>
     </div>
     <div class="sync"><span id="dot" class="dot"></span><span id="sync-text">Checking...</span><button id="send" class="btn ghost small-btn" type="button">Send now</button></div>
     <p id="notice" class="notice" role="status" hidden></p>
     <div id="forms"></div>
-    <h2 style="font-size:1.2rem;margin-top:28px">Recorded on this phone</h2>
+    <h2 class="recent-head">Recorded on this phone</h2>
     <ul id="recent" class="recent"></ul>
   </section>
 </main>

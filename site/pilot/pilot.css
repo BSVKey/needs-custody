@@ -73,3 +73,10 @@ details.card#new-site { padding: 16px; }
   body.printing .print-me { position: absolute; left: 0; top: 0; width: 100%; border: 2px dashed #999; }
   .no-print { display: none !important; }
 }
+.who h1 { margin: 0; }
+.who #who-role { margin: 4px 0 0; }
+.recent-head { font-size: 1.2rem; margin-top: 28px; }
+/* The shared stylesheet makes cards and forms grids: keep [hidden] hidden and stop rows stretching. */
+[hidden] { display: none !important; }
+form.card, .card form, .invite-form { align-content: start; }
+form .btn, .card .row .btn { justify-self: start; }
