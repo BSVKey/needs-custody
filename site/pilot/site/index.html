@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Pilot · Needs Custody</title>
+<meta name="description" content="A live Needs Custody pilot: water, food, kiosk sales and rain, checked in your browser and sealed in the public record.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230E7C86'/%3E%3Cpath d='M16 6c4 5 7 9 7 13a7 7 0 0 1-14 0c0-4 3-8 7-13z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css?v=1">
+<link rel="stylesheet" href="/needs.css?v=3">
+<link rel="stylesheet" href="/pilot/pilot.css?v=1">
+</head>
+<body>
+<header class="top">
+  <div class="wrap bar">
+    <a class="brand" href="/">BSVKey <span>· Needs Custody</span></a>
+    <nav><a href="/#how">How it works</a><a class="btn small" href="/pilot/">Run your own pilot</a></nav>
+  </div>
+</header>
+<main>
+  <section id="day" class="wrap day">
+    <p class="eyebrow" id="meta">Live pilot</p>
+    <h2 id="name">Loading...</h2>
+    <p class="lede small">Every card is rebuilt from receipts signed on the phones of the people who did the work, and checked in your browser as you watch. Each finished day is sealed in the public record, so nothing can be changed afterwards.</p>
+    <div class="tabs" id="days" role="group" aria-label="Choose a day"></div>
+    <p id="status" class="status" aria-live="polite">Loading...</p>
+    <div id="board" class="board"></div>
+  </section>
+</main>
+<footer class="wrap foot"><p>Needs Custody by BSVKey. Open source on <a href="https://github.com/BSVKey/needs-custody">GitHub</a>.</p></footer>
+<script src="/pilot/lib.js?v=2"></script>
+<script src="/pilot/site/site.js?v=1"></script>
+</body>
+</html>

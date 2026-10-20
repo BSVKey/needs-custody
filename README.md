@@ -12,6 +12,21 @@ node --test       # 13 tests
 Zero dependencies, Node 18 or later. Live page with an in-browser verifier:
 **https://needs.bsvkey.com**
 
+## Self-serve pilot
+
+https://needs.bsvkey.com/pilot/ lets an organization run a 90-day pilot on its own: $250,
+one site, all five modules, up to 10,000 receipts, sealed daily on Bitcoin BSV. The pages are in
+`site/pilot/`:
+
+- `index.html` + `console.js`: account, site, payment (card or credits), invites by role with QR codes
+- `join/`: a phone makes its own non-exportable Ed25519 key and registers only the public key
+- `app/`: field app per role, offline outbox, chained records, re-chains after a refusal
+- `site/`: public live page that checks every record, signer and daily seal in the browser
+
+Records use the same format as this repo (canonical JSON, SHA-256 content id, Ed25519 over
+the id) plus `siteId`, `memberId`, `seq` and `prev`. The API is the BSVKey credits service,
+proxied at `/api`.
+
 ## Anchored run: check it yourself
 
 `runs/2026-10-19/` holds a full demo day (618 signed records). Its batch root
