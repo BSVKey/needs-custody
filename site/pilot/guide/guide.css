@@ -1,0 +1,23 @@
+.guide { padding-bottom: 20px; }
+.guide video { display: block; width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--border-strong); background: #111; }
+.checklist { padding-left: 20px; color: var(--muted); }
+.checklist li { margin-bottom: 8px; }
+.checklist strong { color: var(--ink); }
+.step { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 28px; align-items: start; padding: 26px 0; border-top: 1px solid var(--border); background: none; border-left: 0; border-right: 0; border-bottom: 0; border-radius: 0; }
+.step .num { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--sats); color: #fff; font-family: var(--font-display); font-weight: 800; margin: 0 0 10px; }
+.step h3 { font-size: 1.3rem; }
+.step p, .step li { color: var(--muted); }
+.step strong, .step em { color: var(--ink); }
+.step code { font-family: var(--font-mono); background: var(--surface-2); padding: 1px 6px; border-radius: 6px; }
+.step figure { margin: 0; }
+.step img { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--border-strong); box-shadow: 0 6px 24px rgba(22, 19, 14, .08); }
+.step.phone figure { max-width: 300px; }
+.step.phone img { border-radius: 22px; border: 6px solid #16130E; }
+.step .pair { display: flex; gap: 16px; flex-wrap: wrap; }
+.step .pair figure { flex: 1 1 200px; max-width: 260px; }
+.step figure.tall img { max-height: 760px; object-fit: cover; object-position: top; }
+.tip { background: var(--surface-2); border-radius: 10px; padding: 10px 14px; font-size: .95rem; }
+@media (max-width: 800px) {
+  .step { grid-template-columns: 1fr; gap: 14px; }
+  .step.phone figure, .step .pair figure { max-width: 240px; }
+}

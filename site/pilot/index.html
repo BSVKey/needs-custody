@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css?v=1">
 <link rel="stylesheet" href="/needs.css?v=3">
-<link rel="stylesheet" href="/pilot/pilot.css?v=3">
+<link rel="stylesheet" href="/pilot/pilot.css?v=4">
 </head>
 <body>
 <header class="top">
@@ -23,9 +23,10 @@
 
 <main class="wrap pilot">
   <section class="hero">
-    <p class="eyebrow">Self-serve pilot · $250 · 90 days</p>
+    <p class="eyebrow">Self-serve pilot · $5 test · $250 for 90 days</p>
     <h1>Run a pilot yourself, today.</h1>
-    <p class="lede">One site, all five modules, up to 10,000 receipts, sealed in the public record every day. Pay once, invite your people by QR code, and share a live page with donors. No calls, no contracts, no setup fees.</p>
+    <p class="lede">One site, all five modules, sealed in the public record every day. Start with a $5 test pilot, invite your people by QR code, and share a live page with donors. No calls, no contracts, no setup fees.</p>
+    <p class="row"><a class="btn ghost" href="/pilot/guide/">Read the step-by-step guide</a><a class="btn ghost" href="/pilot/guide/#video">Watch the 2-minute video</a></p>
   </section>
 
   <p id="notice" class="notice" role="status" hidden></p>
@@ -66,6 +67,10 @@
     <details class="card" id="new-site">
       <summary class="btn ghost">Add a pilot site</summary>
       <form id="site-form">
+        <fieldset class="plans"><legend>Choose a plan</legend>
+          <label class="plan"><input type="radio" name="plan" value="test" checked><span><strong>Test pilot, $5</strong>3 days, up to 100 receipts, sealed for real. Upgrade anytime for $245 and keep everything.</span></label>
+          <label class="plan"><input type="radio" name="plan" value="full"><span><strong>Full pilot, $250</strong>90 days, up to 10,000 receipts, sealed every day.</span></label>
+        </fieldset>
         <label>Site name<input name="name" required maxlength="80" placeholder="e.g. Camp East water and food"></label>
         <label>People served<input name="population" type="number" min="1" required placeholder="2400"></label>
         <fieldset><legend>Drought cover trigger</legend>
@@ -83,7 +88,7 @@
   <section id="how" class="panel">
     <h2>How the pilot works</h2>
     <ol class="steps-list">
-      <li><strong>Pay $250 once.</strong> Card, or Bitcoin BSV credits. It covers one site for 90 days, up to 10,000 receipts and a daily public seal. Nothing renews.</li>
+      <li><strong>Try it for $5, or pay $250 once.</strong> Card, or Bitcoin BSV credits. The $5 test pilot runs 3 days with up to 100 receipts. The full pilot covers one site for 90 days, up to 10,000 receipts and a daily public seal. Nothing renews, and a test pilot upgrades for $245.</li>
       <li><strong>Invite your people.</strong> Make an invite for each role (driver, water tester, camp committee, kiosk, warehouse, carrier, distribution point, rain gauge). Each invite is a QR code that works once.</li>
       <li><strong>They scan and record.</strong> The phone makes its own signing key, so nobody else can sign for them. Records work with no signal and send when a connection returns.</li>
       <li><strong>Share the live page.</strong> Donors and auditors see trucks, food, kiosk sales and rain checked in their own browser, with every day sealed in the public record.</li>
@@ -94,6 +99,6 @@
 
 <footer class="wrap foot"><p>Payments go to Embryo Space Inc. (DBA BSVKey). Credits buy BSVKey services only and are not refundable for cash. Questions: <a href="mailto:embryospace@gmail.com">embryospace@gmail.com</a>.</p></footer>
 <script src="/pilot/lib.js?v=2"></script>
-<script src="/pilot/console.js?v=1"></script>
+<script src="/pilot/console.js?v=2"></script>
 </body>
 </html>

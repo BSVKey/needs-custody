@@ -60,7 +60,7 @@
   $("site-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = new FormData(e.target);
-    const r = await api("/needs/sites", { method: "POST", key, body: { name: f.get("name"), population: Number(f.get("population")), drought: { triggerMm: Number(f.get("triggerMm")), windowDays: Number(f.get("windowDays")), quorum: Number(f.get("quorum")) } } });
+    const r = await api("/needs/sites", { method: "POST", key, body: { plan: f.get("plan") || "test", name: f.get("name"), population: Number(f.get("population")), drought: { triggerMm: Number(f.get("triggerMm")), windowDays: Number(f.get("windowDays")), quorum: Number(f.get("quorum")) } } });
     if (r.status !== 201) return notice(message(r, "Could not create the site."), "bad");
     e.target.reset(); $("new-site").open = false;
     await loadSites();
@@ -80,18 +80,27 @@
   function siteCard(s) {
     const card = el("article", { class: `card site ${s.status}` });
     const pub = `${location.origin}/pilot/site/#${s.id}`;
-    card.append(el("div", { class: "site-head" }, el("h3", { text: s.name }), el("span", { class: `pill ${s.status}`, text: s.status === "draft" ? "Not paid yet" : s.status === "active" ? `Active, ${daysLeft(s)} days left` : "Ended" })));
+    card.append(el("div", { class: "site-head" }, el("h3", { text: s.name }), el("span", { class: `pill ${s.status}`, text: `${s.plan === "test" ? "Test pilot · " : ""}${s.status === "draft" ? "Not paid yet" : s.status === "active" ? `${daysLeft(s)} day${daysLeft(s) === 1 ? "" : "s"} left` : "Ended"}` })));
     card.append(el("p", { class: "fine" }, `${fmt(s.population)} people · drought trigger: under ${s.drought.triggerMm} mm in ${s.drought.windowDays} days, ${s.drought.quorum} sources agree`));
 
     if (s.status === "draft") {
-      const canBalance = account.balanceCents >= price;
+      const cost = s.priceCents, canBalance = account.balanceCents >= cost;
       card.append(el("div", { class: "row" },
-        el("button", { class: "btn", type: "button", onclick: () => payCard(s) }, `Pay ${money(price)} by card`),
+        el("button", { class: "btn", type: "button", onclick: () => payCard(s) }, `Pay ${money(cost)} by card`),
         el("button", { class: "btn ghost", type: "button", disabled: !canBalance, onclick: () => payBalance(s) }, `Pay from balance (${money(account.balanceCents)})`)));
       card.append(el("p", { class: "fine" }, "Paying in Bitcoin BSV: add credits on ", el("a", { href: "https://paywall.bsvkey.com/credits" }, "the credits page"), " with the same key, then come back and pay from your balance."));
       return card;
     }
 
+    if (s.plan === "test") {
+      // The server adds the $5 test credit before charging $250, so the balance needs only the upgrade price.
+      const up = s.upgradeCents, counted = up < price;
+      card.append(el("div", { class: "upgrade" },
+        el("p", {}, el("strong", { text: "This is a test pilot. " }), `Upgrade to the full 90-day pilot for ${money(up)}${counted ? " (your $5 test counts toward the $250)" : ""}. You keep this site, its people and its receipts.`),
+        el("div", { class: "row" },
+          el("button", { class: "btn", type: "button", onclick: () => payCard(s) }, `Upgrade for ${money(up)} by card`),
+          el("button", { class: "btn ghost", type: "button", disabled: account.balanceCents < up, onclick: () => upgradeBalance(s) }, `Upgrade from balance (${money(account.balanceCents)})`))));
+    }
     card.append(el("div", { class: "stats" },
       stat("Receipts", `${fmt(s.recordCount)} of ${fmt(s.recordCap)}`),
       stat("People", String(s.members.filter((m) => !m.revokedAt).length)),
@@ -155,10 +164,17 @@
     location.href = r.json.checkoutUrl;
   }
   async function payBalance(s) {
-    if (!confirm(`Pay ${money(price)} from your balance for "${s.name}"?`)) return;
+    if (!confirm(`Pay ${money(s.priceCents)} from your balance for "${s.name}"?`)) return;
     const r = await api(`/needs/sites/${s.id}/activate`, { method: "POST", key });
     if (!r.ok) return notice(message(r, "Could not pay from the balance."), "bad");
     notice("Paid. Your pilot is running for 90 days. Invite your people below.", "good");
+    await load();
+  }
+  async function upgradeBalance(s) {
+    if (!confirm(`Upgrade "${s.name}" to the full 90-day pilot for ${money(s.upgradeCents)} from your balance?`)) return;
+    const r = await api(`/needs/sites/${s.id}/upgrade`, { method: "POST", key });
+    if (!r.ok) return notice(message(r, "Could not upgrade from the balance."), "bad");
+    notice("Upgraded. Your pilot now runs for 90 days with up to 10,000 receipts.", "good");
     await load();
   }
   async function removeMember(s, m) {

@@ -40,8 +40,10 @@
     site = r.json.site;
     document.title = `${site.name} · Needs Custody`;
     $("name").textContent = site.name;
-    const dayNo = site.activatedAt ? Math.min(90, Math.floor((Date.now() - Date.parse(site.activatedAt)) / 86400000) + 1) : 0;
-    $("meta").textContent = `Live pilot · ${fmt(site.population)} people · ${site.status === "ended" ? "pilot ended" : `day ${dayNo} of 90`}`;
+    const total = site.activatedAt && site.until ? Math.round((site.until - Date.parse(site.activatedAt)) / 86400000) : 90;
+    const dayNo = site.activatedAt ? Math.min(total, Math.floor((Date.now() - Date.parse(site.activatedAt)) / 86400000) + 1) : 0;
+    $("meta").textContent = `${site.plan === "test" ? "Test pilot" : "Live pilot"} · ${fmt(site.population)} people · ${site.status === "ended" ? "pilot ended" : `day ${dayNo} of ${total}`}`;
+    if (site.plan === "test") $("name").after(el("p", { class: "test-banner", text: `This is a $5 test pilot: ${total} days, up to ${fmt(site.recordCap)} receipts. Every receipt and seal on this page is real.` }));
     days = site.days;
     $("status").textContent = `Checking ${fmt(site.recordCount)} receipts...`;
     const loaded = await Promise.all(days.map((d) => api(`/needs/public/sites/${siteId}/days/${d.day}`)));
