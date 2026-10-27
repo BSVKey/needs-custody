@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // One day at a fictional settlement, "Camp North" (2,400 residents), covering five basic
 // needs: safe water delivered, water bought by the liter, food aid handed out, a
-// drought payout, and all of it recorded offline then anchored once on Bitcoin BSV.
+// drought payout, and field medicine after a flood (triage tags and supplies), all of
+// it recorded offline then anchored once on Bitcoin BSV.
 // Each section verifies the honest records, then shows tampering being caught.
 //   node demo.mjs                 print the day
 //   node demo.mjs --out runs/X   also save the day's records + batch for anchoring
@@ -11,6 +12,7 @@ import { SPHERE, qualityReading, waterDelivery, waterReceived, verifyWaterDelive
 import { openChannel, meterState, kioskAccept, settle } from "./src/meter.mjs";
 import { householdTag, aidManifest, entitlementProof, aidHandoff, aidHandout, verifyAid } from "./src/aid.mjs";
 import { droughtPolicy, rainReading, evaluate, payout, verifyPayout } from "./src/parametric.mjs";
+import { casualtyTag, triage, casualtyHandoff, verifyCasualties, supplyRequest, supplyReceipt, verifySupplies } from "./src/medical.mjs";
 import { appendEntry, reassemble } from "./src/offline.mjs";
 import { anchorBatch, batchProof, inBatch, ANCHOR_TAG } from "./src/anchor.mjs";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -122,8 +124,58 @@ out(`  Tamper: gauge signs two values + unknown source reports 5 mm -> ${ev2.ign
 const redirect = payout(insurer, { ...pol, payTo: "1AttackerAddrXXXXXXXXXXXXXXXXXXXX" }, ev, { windowEnd, settlementRef: "x" });
 out(`  Tamper: payout redirected to another address -> ${verifyPayout(pol, { ...redirect, policyClaim: pol.claimId }, readings, { sourcePubs }).reason}`);
 
-// ---- 5. Communication: offline store-and-forward ------------------------------------
-head("5. COMMUNICATION: offline log, synced when the link returns");
+// ---- 5. Medicine: triage and supplies after a flood ---------------------------------
+head("5. MEDICINE: triage tags and medical supplies after a flood");
+const med = Object.fromEntries(["medic-a", "ccp-1", "ambulance-3", "district-hospital"].map((n) => [n, genKeypair()]));
+const medPubs = Object.fromEntries(Object.entries(med).map(([n, k]) => [n, k.pub]));
+const INC = "flood-cn-1019", F0 = T0 + 3 * H, M = 60000;
+const cats = ["red", "red", "red", "yellow", "yellow", "yellow", "yellow", "green", "green", "green", "green", "green"];
+const ctags = cats.map((_, i) => casualtyTag("flood-cn-1019-tags", `T-${4100 + i}`));
+const triages = cats.map((c, i) => keep(triage(med["medic-a"], { incidentId: INC, tag: ctags[i], category: c, by: "medic-a", at: F0 + i * 2 * M })));
+// Casualty 3 gets worse at the casualty collection point and is re-triaged red there.
+triages.push(keep(triage(med["ccp-1"], { incidentId: INC, tag: ctags[3], category: "red", by: "ccp-1", at: F0 + 30 * M, prev: triages[3].claimId })));
+const moves = [];
+const move = (i, from, to, category, atMin) => moves.push(keep(casualtyHandoff(med[to], { incidentId: INC, tag: ctags[i], from, to, category, at: F0 + atMin * M })));
+const evacuate = (i, category, [ccp, amb, hosp]) => {
+  move(i, "medic-a", "ccp-1", cats[i], ccp);
+  move(i, "ccp-1", "ambulance-3", category, amb);
+  if (hosp) move(i, "ambulance-3", "district-hospital", category, hosp);
+};
+evacuate(0, "red", [10, 20, 45]);
+evacuate(1, "red", [15, 25, 52]);
+evacuate(2, "red", [20, 60, 99]); // waited for the ambulance: late
+evacuate(3, "red", [25, 35, 58]);
+evacuate(4, "yellow", [30, 70, 110]);
+evacuate(5, "yellow", [32, 72, 112]);
+evacuate(6, "yellow", [34, 74, null]); // picked up, never signed in at the hospital
+for (let i = 7; i < 12; i++) move(i, "medic-a", "ccp-1", "green", 40 + i);
+const cas = verifyCasualties({ triages, handoffs: moves }, { incidentId: INC, pubs: medPubs, hospitals: ["district-hospital"] });
+const short = (t) => `${t.slice(0, 10)}...`;
+out(`  ${cas.casualties.length} casualties tagged (salted tag numbers, no names): ${Object.entries(cas.byCategory).filter(([, n]) => n).map(([c, n]) => `${c} ${n}`).join(", ")}`);
+out(`  At hospital ${cas.casualties.filter((c) => c.status === "at hospital").length}, treated on site ${cas.casualties.filter((c) => c.status === "treated on site").length}, chain ${cas.ok ? "INTACT" : "BROKEN"}`);
+for (const c of cas.casualties.filter((x) => x.retriagedFrom)) out(`  Re-triaged at the collection point: ${short(c.tag)} ${c.retriagedFrom} -> ${c.category}, signed by ccp-1`);
+for (const c of cas.lateRed) out(`  Red casualty ${short(c.tag)} reached hospital after ${c.minutesToHospital} min (limit 60)`);
+for (const c of cas.missing) out(`  NOT ACCOUNTED FOR: ${c.category} casualty ${short(c.tag)}, last signed for by ${c.lastHolder}`);
+const recheck = (handoffs) => verifyCasualties({ triages, handoffs }, { incidentId: INC, pubs: medPubs, hospitals: ["district-hospital"] }).problems[0];
+const downgraded = moves.map((h) => (h.tag === ctags[0] && h.to === "ambulance-3" ? casualtyHandoff(med["ambulance-3"], { ...h, category: "yellow" }) : h));
+out(`  Tamper: ambulance logs a red casualty as yellow -> ${recheck(downgraded)}`);
+const fakeArrival = casualtyHandoff(med["ambulance-3"], { incidentId: INC, tag: ctags[6], from: "ambulance-3", to: "district-hospital", category: "yellow", at: F0 + 100 * M });
+out(`  Tamper: ambulance signs the missing casualty in at the hospital itself -> ${recheck([...moves, fakeArrival])}`);
+const backdated = moves.map((h) => (h.tag === ctags[2] && h.to === "district-hospital" ? { ...h, at: F0 + 40 * M } : h));
+out(`  Tamper: late arrival time edited to look on time -> ${recheck(backdated)}`);
+
+const reqs = [["SR-1", "IV fluid 1 L", 40], ["SR-2", "tourniquet", 10], ["SR-3", "wound dressing kit", 60]]
+  .map(([requestId, item, qty]) => keep(supplyRequest(med["ccp-1"], { incidentId: INC, requestId, station: "ccp-1", item, qty, at: F0 + 15 * M })));
+const rcpts = [["SR-1", 30], ["SR-3", 60]]
+  .map(([requestId, qtyReceived]) => keep(supplyReceipt(med["ccp-1"], { incidentId: INC, requestId, station: "ccp-1", from: "medical-store", qtyReceived, at: F0 + 80 * M })));
+const sup = verifySupplies({ requests: reqs, receipts: rcpts }, { incidentId: INC, pubs: medPubs });
+for (const l of sup.lines) out(`  ${l.requestId} ${l.item.padEnd(19)} asked ${String(l.qty).padStart(3)}, received ${String(l.received).padStart(3)}: ${l.status}`);
+const storeSigned = supplyReceipt(genKeypair(), { incidentId: INC, requestId: "SR-2", station: "ccp-1", from: "medical-store", qtyReceived: 10, at: F0 + 90 * M });
+const sup2 = verifySupplies({ requests: reqs, receipts: [...rcpts, storeSigned] }, { incidentId: INC, pubs: medPubs });
+out(`  Tamper: the store marks SR-2 received itself -> ${sup2.problems[0]}, SR-2 still ${sup2.lines.find((l) => l.requestId === "SR-2").status}`);
+
+// ---- 6. Communication: offline store-and-forward ------------------------------------
+head("6. COMMUNICATION: offline log, synced when the link returns");
 const device = genKeypair(), log = [];
 for (const r of allRecords) appendEntry(device, log, { deviceId: "field-tab-1", recordId: r.claimId, at: T0 });
 const shuffled = [...log, log[3], log[7], log[100]].sort(() => Math.random() - 0.5);

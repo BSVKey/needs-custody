@@ -5,6 +5,7 @@ import { qualityReading, waterDelivery, waterReceived, verifyWaterDelivery, cove
 import { openChannel, meterState, kioskAccept, settle } from "../src/meter.mjs";
 import { householdTag, aidManifest, entitlementProof, aidHandoff, aidHandout, verifyAid } from "../src/aid.mjs";
 import { droughtPolicy, rainReading, evaluate, payout, verifyPayout } from "../src/parametric.mjs";
+import { casualtyTag, triage, casualtyHandoff, verifyCasualties, supplyRequest, supplyReceipt, verifySupplies } from "../src/medical.mjs";
 import { appendEntry, reassemble } from "../src/offline.mjs";
 import { anchorBatch, batchProof, inBatch } from "../src/anchor.mjs";
 
@@ -183,4 +184,51 @@ test("anchor: on-chain check accepts only the exact tag + root script", async ()
   assert.equal(opReturnCarriesRoot(tx(b.scriptHex), b.root), true);
   assert.equal(opReturnCarriesRoot(tx(b.scriptHex), "f".repeat(64)), false);
   assert.equal(opReturnCarriesRoot(tx("006a20" + b.root), b.root), false); // root without the tag
+});
+
+// ---- medical --------------------------------------------------------------------------
+function incident() {
+  const k = Object.fromEntries(["medic", "ccp", "amb", "hosp"].map((n) => [n, genKeypair()]));
+  const pubs = Object.fromEntries(Object.entries(k).map(([n, x]) => [n, x.pub]));
+  const tag = casualtyTag("s", "T-1"), M = 60000;
+  const t1 = triage(k.medic, { incidentId: "I", tag, category: "yellow", by: "medic", at: T });
+  const t2 = triage(k.ccp, { incidentId: "I", tag, category: "red", by: "ccp", at: T + 20 * M, prev: t1.claimId });
+  const hs = [
+    casualtyHandoff(k.ccp, { incidentId: "I", tag, from: "medic", to: "ccp", category: "yellow", at: T + 10 * M }),
+    casualtyHandoff(k.amb, { incidentId: "I", tag, from: "ccp", to: "amb", category: "red", at: T + 30 * M }),
+    casualtyHandoff(k.hosp, { incidentId: "I", tag, from: "amb", to: "hosp", category: "red", at: T + 50 * M }),
+  ];
+  const opts = { incidentId: "I", pubs, hospitals: ["hosp"] };
+  return { k, tag, triages: [t1, t2], hs, opts, M };
+}
+
+test("medical: re-triaged casualty reaches hospital; late reds and missing casualties are reported", () => {
+  const { triages, hs, opts, M } = incident();
+  let r = verifyCasualties({ triages, handoffs: hs }, opts);
+  assert.equal(r.ok, true);
+  assert.deepEqual([r.casualties[0].status, r.casualties[0].category, r.casualties[0].retriagedFrom, r.casualties[0].minutesToHospital], ["at hospital", "red", "yellow", 50]);
+  assert.equal(r.lateRed.length, 0);
+  r = verifyCasualties({ triages, handoffs: hs }, { ...opts, redLimitMs: 30 * M });
+  assert.equal(r.lateRed.length, 1);
+  r = verifyCasualties({ triages, handoffs: hs.slice(0, 2) }, opts);
+  assert.deepEqual([r.missing.length, r.missing[0].lastHolder], [1, "amb"]);
+});
+
+test("medical: category change without re-triage, wrong signer, skipped holder and edits are caught", () => {
+  const { k, tag, triages, hs, opts, M } = incident();
+  const bad = (handoffs, ts = triages) => verifyCasualties({ triages: ts, handoffs }, opts).problems[0];
+  assert.match(bad([hs[0], casualtyHandoff(k.amb, { ...hs[1], category: "yellow" }), hs[2]]), /red -> yellow at amb without a signed re-triage/);
+  assert.match(bad([hs[0], hs[1], casualtyHandoff(k.amb, { incidentId: "I", tag, from: "amb", to: "hosp", category: "red", at: T + 50 * M })]), /signer_not_pinned/);
+  assert.match(bad([hs[0], hs[2]]), /handed over by amb but held by ccp/);
+  assert.match(bad([hs[0], hs[1], { ...hs[2], at: T + 15 * M }]), /claimId_mismatch/);
+  assert.match(bad(hs, [triages[0], triage(k.ccp, { incidentId: "I", tag, category: "green", by: "ccp", at: T + 20 * M })]), /re-triage chain break/);
+});
+
+test("medical: supplies short, unfilled and filled; only the requester can sign receipt", () => {
+  const ccp = genKeypair(), store = genKeypair(), pubs = { ccp: ccp.pub, store: store.pub };
+  const q = (requestId, qty) => supplyRequest(ccp, { incidentId: "I", requestId, station: "ccp", item: "x", qty, at: T });
+  const got = (kp, requestId, qtyReceived) => supplyReceipt(kp, { incidentId: "I", requestId, station: "ccp", from: "store", qtyReceived, at: T + 1 });
+  const r = verifySupplies({ requests: [q("A", 10), q("B", 5), q("C", 4)], receipts: [got(ccp, "A", 6), got(ccp, "C", 4), got(store, "B", 5), got(ccp, "Z", 1)] }, { incidentId: "I", pubs });
+  assert.deepEqual(r.lines.map((l) => l.status), ["short", "unfilled", "filled"]);
+  assert.deepEqual(r.problems, ["receipt B: signer_not_pinned", "receipt Z: no matching request"]);
 });

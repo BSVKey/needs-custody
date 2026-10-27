@@ -5,8 +5,8 @@ shelter. It proves the water was safe and arrived, the money reached the right p
 the food reached the household on the list. Today those are the points where aid fails.
 
 ```
-node demo.mjs     # one day at a fictional camp, all five needs, with tampering caught
-node --test       # 13 tests
+node demo.mjs     # one day at a fictional camp: five needs plus field medicine, tampering caught
+node --test       # 17 tests
 ```
 
 Zero dependencies, Node 18 or later. Live page with an in-browser verifier:
@@ -49,6 +49,7 @@ Make and anchor your own day: `node demo.mjs --out runs/<day>`, then
 | Water, bought | `src/meter.mjs` | A prepaid kiosk channel metered per mL. Only the buyer can raise what's owed, the kiosk accepts only the next state and never a lower volume, and the newest state settles. On close, whole satoshis go to the kiosk and the rest returns to the buyer. |
 | Food | `src/aid.mjs` | Loss on each leg, attributed to whoever held the food (the receiver signs the weight). Households appear only as salted tags under a Merkle root, and each handout carries a proof of entitlement. Double claims, unlisted tags and inflated rations are rejected. |
 | Shelter (disaster money) | `src/parametric.mjs` | A drought policy pays only when a quorum of distinct, pinned rainfall sources read below the trigger. Anyone can re-run the decision. A source that signs two values for one window is excluded, and a payout to another payee or for another amount fails. |
+| Field medicine | `src/medical.mjs` | Every casualty tagged in the field (a salted tag number, never a name), every re-triage, and every move, signed by the station that took the casualty. Red and yellow casualties that never signed in at a hospital are listed with the last station that signed for them, red casualties over the time limit are flagged, and a category changed without a signed re-triage is caught. Supply requests are matched against receipts the requesting station signs, so short and unfilled orders show up and a supplier can't mark its own delivery received. Not yet in the self-serve pilot. |
 | Communication | `src/offline.mjs` | Field devices keep a hash-linked log while offline. When the link returns, shuffled and resent entries reassemble, and deleted, edited or forked entries are caught. |
 | All of the above | `src/anchor.mjs` | Each day's records go into one Merkle root in a 50-byte `OP_FALSE OP_RETURN` script on Bitcoin BSV, with a short inclusion proof per record. |
 
