@@ -409,16 +409,25 @@ function stationsCard(res) {
   const box = el("div", `card ${res.stationList.some((s) => s.status === "conflict") ? "alert" : ""}`);
   box.append(el("h3", null, "Stations"));
   box.append(el("p", "fine", "Ask each station for the code on its screen (by voice, radio or phone call) and confirm the matching key here. Where two phones claim one name, neither is trusted until you confirm one."));
-  box.append(table(["Station", "Role", "Station code", "", ""], res.stationList.map((s) => {
-    const act = el("td");
+  // One row per key, stacked so it fits a phone: name and role, the code to compare, then status
+  // and the Confirm button.
+  const list = el("ul", "station-list");
+  for (const s of res.stationList) {
+    const li = el("li", "station-row"), who = el("div");
+    who.append(el("strong", null, s.name), el("span", "fine", ROLES[s.role] || s.role));
+    const label = s.status === "confirmed" ? (s.trusted ? "confirmed" : "not this one") : s.status === "conflict" ? "two keys: pick one" : "not confirmed yet";
+    const act = el("div", "station-act");
+    act.append(el("span", `pill ${s.status === "confirmed" && s.trusted ? "active" : s.status === "conflict" || !s.trusted ? "bad" : "draft"}`, label));
     if (s.status !== "confirmed") {
-      const b = el("button", "btn ghost small-btn", "Confirm this code"); b.type = "button";
+      const b = el("button", "btn ghost small-btn", "Confirm"); b.type = "button";
+      b.setAttribute("aria-label", `Confirm ${s.name} with code ${s.code}`);
       b.addEventListener("click", async () => { state.approved = { ...(state.approved || {}), [s.name]: s.pub }; write(); await runCheck(); });
       act.append(b);
     }
-    const label = s.status === "confirmed" ? (s.trusted ? "confirmed" : "not this one") : s.status === "conflict" ? "two keys: pick one" : "not confirmed yet";
-    return [s.name, ROLES[s.role] || s.role, s.code, pill(label, s.status === "confirmed" && s.trusted ? "active" : s.status === "conflict" || !s.trusted ? "bad" : "draft"), act];
-  })));
+    li.append(who, el("code", "station-code", s.code), act);
+    list.append(li);
+  }
+  box.append(list);
   if (state.sampleCodes) box.append(el("p", "fine", `Sample only: the real district-hospital phone shows code ${state.sampleCodes["district-hospital"]}. Confirm that one and run the check again.`));
   return box;
 }
@@ -474,10 +483,13 @@ async function runCheck() {
   if (res.vaccines.lines.length) {
     const box = el("div", "card");
     box.append(el("h3", null, "Vaccine deliveries"));
-    box.append(table(["Shipment", "Clinic", "Vials", "Logger", "Clinic decided", ""], res.vaccines.lines.map((v) => {
+    // Four columns so it fits a phone: the verdict sits under the clinic's decision.
+    box.append(table(["Shipment", "Logger", "Clinic decided"], res.vaccines.lines.map((v) => {
       const lg = v.logger, says = lg ? (lg.chargedMinutes <= lg.budgetMinutes ? "release" : "quarantine") : null;
-      const flag = !lg ? pill("no logger file", "draft") : says !== v.decision ? pill(`logger says ${says}`, "bad") : pill("matches logger", "active");
-      return [v.shipmentId, v.station, String(v.vials), lg ? `${lg.chargedMinutes} of ${lg.budgetMinutes} min, ${lg.minC} to ${lg.maxC} °C` : "none", v.decision, flag];
+      const flag = !lg ? el("span", "pill draft", "no logger file") : says !== v.decision ? el("span", "pill bad", `logger says ${says}`) : el("span", "pill active", "matches logger");
+      const ship = el("td"); ship.append(el("strong", null, v.shipmentId), el("br"), el("span", "fine", `${v.station}, ${v.vials} vials`));
+      const dec = el("td"); dec.append(el("span", null, v.decision), el("br"), flag);
+      return [ship, lg ? `${lg.chargedMinutes} of ${lg.budgetMinutes} min outside 2 to 8 °C or unlogged (${lg.minC} to ${lg.maxC} °C)` : "none", dec];
     })));
     box.append(el("p", "fine", "Each receipt carries the logger file's fingerprint. The national store can check it against the raw logger export with pharma-custody."));
     out.append(box);
