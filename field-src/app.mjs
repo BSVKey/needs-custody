@@ -466,17 +466,23 @@ async function runCheck() {
   if (c.casualties.length) {
     const box = el("div", "card");
     box.append(el("h3", null, "Every casualty"));
-    box.append(table(["Tag code", "Category", "Where", "Minutes to hospital", ""], c.casualties.map((x) => [
-      short(x.tag), x.retriagedFrom ? `${x.category} (was ${x.retriagedFrom})` : x.category, x.status === "at hospital" ? x.lastHolder : `${x.status}, ${x.lastHolder}`,
-      x.minutesToHospital ?? "", x.late ? pill(`late, over ${state.incident.redLimitMin} min`, "bad") : el("td"),
-    ])));
+    box.append(table(["Tag code", "Category", "Where"], c.casualties.map((x) => {
+      const where = el("td");
+      where.append(el("span", null, x.status === "at hospital" ? `${x.lastHolder}, after ${x.minutesToHospital} min` : `${x.status}, ${x.lastHolder}`));
+      if (x.late) where.append(el("br"), el("span", "pill bad", `late, over ${state.incident.redLimitMin} min`));
+      return [short(x.tag), x.retriagedFrom ? `${x.category} (was ${x.retriagedFrom})` : x.category, where];
+    })));
     out.append(box);
   }
 
   if (res.supplies.lines.length) {
     const box = el("div", "card");
     box.append(el("h3", null, "Supply orders"));
-    box.append(table(["Order", "Item", "Asked", "Arrived", ""], res.supplies.lines.map((l) => [l.requestId, l.item, String(l.qty), String(l.received), pill(l.status, l.status === "filled" ? "active" : "bad")])));
+    box.append(table(["Order", "Arrived"], res.supplies.lines.map((l) => {
+      const order = el("td"); order.append(el("strong", null, l.item), el("br"), el("span", "fine", l.requestId));
+      const got = el("td"); got.append(el("span", null, `${l.received} of ${l.qty} `), el("span", `pill ${l.status === "filled" ? "active" : "bad"}`, l.status));
+      return [order, got];
+    })));
     out.append(box);
   }
 
