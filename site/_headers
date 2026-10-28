@@ -4,3 +4,13 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Content-Security-Policy: default-src 'none'; script-src 'self'; connect-src 'self' https://api.whatsonchain.com; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; media-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+
+# /field/: the field health kit. Unlike the rest of the site it uses the camera (scan a QR
+# code) and microphone (hear records as sound), and ggwave's WebAssembly loader needs eval.
+# Everything stays on the phone: connect-src allows only this site.
+/field/*
+  Permissions-Policy: camera=(self), microphone=(self), geolocation=()
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' data:; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+
+/field/kit.html
+  Content-Disposition: attachment; filename="field-health-kit.html"

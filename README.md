@@ -6,10 +6,10 @@ the food reached the household on the list. Today those are the points where aid
 
 ```
 node demo.mjs     # one day at a fictional camp: five needs plus field medicine, tampering caught
-node --test       # 17 tests
+node --test       # 31 tests (QR and sound ones need npm install)
 ```
 
-Zero dependencies, Node 18 or later. Live page with an in-browser verifier:
+Zero runtime dependencies, Node 18 or later (the field page's build and its QR and sound tests use dev dependencies). Live page with an in-browser verifier:
 **https://needs.bsvkey.com**
 
 ## Self-serve pilot
@@ -26,6 +26,45 @@ one site, all five modules, up to 10,000 receipts, sealed daily on Bitcoin BSV. 
 Records use the same format as this repo (canonical JSON, SHA-256 content id, Ed25519 over
 the id) plus `siteId`, `memberId`, `seq` and `prev`. The API is the BSVKey credits service,
 proxied at `/api`.
+
+## Field health kit: no network at all
+
+`site/field/` (https://needs.bsvkey.com/field/ once deployed) is a single page for field
+medicine when the network is down. No account, no server: each phone makes its own Ed25519 key
+and signs triage tags, casualty handoffs, supply requests and receipts, and vaccine receipts
+with the cold box's logger file judged on the phone (2 to 8 °C, logger gaps count against a
+60-minute budget, the same rule as pharma-custody).
+
+Records move phone to phone by whatever works:
+
+- **QR code.** A casualty handover is one code, and it is a link, so a phone camera app opens
+  the page straight onto it. Larger sets cycle through several codes.
+- **Sound** (ggwave, the same codec as the BSVKey offline pay page): through the air, or over a
+  walkie-talkie, AM radio or phone call. One casualty takes about 15 to 25 seconds phone to
+  phone and about 70 seconds on the radio setting. "Play again" fills in any missed part.
+- **File**: Bluetooth, USB, a laptop, email when a link returns.
+- **The kit itself**: `kit.html` is the whole page in one file, for a laptop or Android phone
+  that never had signal (iPhones can't run a saved page).
+
+Records travel packed small (`site/field/wire.js`: known kinds as positional values,
+deflate, base64url, in frames checked against a hash of the whole set). The receiver recomputes
+every claimId and checks every signature, so a damaged or edited record can't pass.
+
+The coordinator's phone takes station keys only from signed station cards and shows each
+station's code (for example `7BB-B06`) to compare by voice or radio. A station name claimed by
+two keys is trusted for neither until the coordinator confirms one. The check runs the same
+logic as `src/medical.mjs`: who is not accounted for and the last station that signed for them,
+late red casualties, short and unfilled orders, and a clinic decision that disagrees with its
+own logger file. The report saves as a CSV.
+
+`site/field/core.js` and `wire.js` use WebCrypto and run in the browser and in Node 20+.
+The page script is `field-src/app.mjs`, built with `npm install && node bin/build-field.mjs`
+into `site/field/app.js` and `kit.html`. Tests: `test/field.test.mjs` (records verify both
+ways against `lib/receipt.mjs`, results equal `src/medical.mjs`, station trust, transfer
+frames), `test/field-qr.test.mjs` (draw and read back QR codes) and
+`test/field-sound.test.mjs` (ggwave at four speeds, resampled to 44.1 kHz with noise). The QR
+and sound tests need the dev dependencies and are skipped without them. Sample data only; the
+kit has not been used in a real response.
 
 ## Anchored run: check it yourself
 
@@ -49,7 +88,7 @@ Make and anchor your own day: `node demo.mjs --out runs/<day>`, then
 | Water, bought | `src/meter.mjs` | A prepaid kiosk channel metered per mL. Only the buyer can raise what's owed, the kiosk accepts only the next state and never a lower volume, and the newest state settles. On close, whole satoshis go to the kiosk and the rest returns to the buyer. |
 | Food | `src/aid.mjs` | Loss on each leg, attributed to whoever held the food (the receiver signs the weight). Households appear only as salted tags under a Merkle root, and each handout carries a proof of entitlement. Double claims, unlisted tags and inflated rations are rejected. |
 | Shelter (disaster money) | `src/parametric.mjs` | A drought policy pays only when a quorum of distinct, pinned rainfall sources read below the trigger. Anyone can re-run the decision. A source that signs two values for one window is excluded, and a payout to another payee or for another amount fails. |
-| Field medicine | `src/medical.mjs` | Every casualty tagged in the field (a salted tag number, never a name), every re-triage, and every move, signed by the station that took the casualty. Red and yellow casualties that never signed in at a hospital are listed with the last station that signed for them, red casualties over the time limit are flagged, and a category changed without a signed re-triage is caught. Supply requests are matched against receipts the requesting station signs, so short and unfilled orders show up and a supplier can't mark its own delivery received. Not yet in the self-serve pilot. |
+| Field medicine | `src/medical.mjs` | Every casualty tagged in the field (a salted tag number, never a name), every re-triage, and every move, signed by the station that took the casualty. Red and yellow casualties that never signed in at a hospital are listed with the last station that signed for them, red casualties over the time limit are flagged, and a category changed without a signed re-triage is caught. Supply requests are matched against receipts the requesting station signs, so short and unfilled orders show up and a supplier can't mark its own delivery received. Not yet in the self-serve pilot; usable offline in the field health kit (`site/field/`). |
 | Communication | `src/offline.mjs` | Field devices keep a hash-linked log while offline. When the link returns, shuffled and resent entries reassemble, and deleted, edited or forked entries are caught. |
 | All of the above | `src/anchor.mjs` | Each day's records go into one Merkle root in a 50-byte `OP_FALSE OP_RETURN` script on Bitcoin BSV, with a short inclusion proof per record. |
 

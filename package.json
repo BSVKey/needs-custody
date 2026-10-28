@@ -4,8 +4,19 @@
   "private": true,
   "type": "module",
   "description": "Verifiable receipts for basic needs: safe water delivered, water sold by the liter, food aid handed out, drought payouts, and offline field logs, anchored daily on Bitcoin BSV.",
-  "scripts": { "demo": "node demo.mjs", "test": "node --test" },
-  "engines": { "node": ">=18" },
+  "scripts": {
+    "demo": "node demo.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "license": "Apache-2.0",
-  "author": "Embryo Space Inc. (DBA BSVKey)"
+  "author": "Embryo Space Inc. (DBA BSVKey)",
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "ggwave": "0.4.0",
+    "jsqr": "1.4.0",
+    "qrcode-generator": "2.0.4"
+  }
 }

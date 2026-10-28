@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Field Health Kit · Needs Custody</title>
+<meta name="description" content="Triage tags, casualty handoffs, medical supplies and vaccine receipts, signed on the phone with no network and checked by the coordinator when records sync.">
+<meta name="theme-color" content="#0E7C86">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230E7C86'/%3E%3Cpath d='M13 7h6v6h6v6h-6v6h-6v-6H7v-6h6z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css?v=1">
+<link rel="stylesheet" href="/pilot/pilot.css?v=4">
+<link rel="stylesheet" href="/field/field.css?v=2">
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/field/">Needs Custody <span>· Field health</span></a><span id="net" class="pill">Checking network</span></div></header>
+<main class="wrap field">
+
+  <section id="setup" class="panel" hidden>
+    <p id="setup-note" class="notice bad" hidden>You scanned a code from another phone. Set this phone up first, and the records it carried will be added straight after.</p>
+    <p class="eyebrow">Works with no network</p>
+    <h1>Field health records that hold up when the network is down</h1>
+    <p class="lede small">Each phone signs its own records: triage tags, casualties it takes over, supplies it asked for and got, vaccine deliveries it received. Nothing needs a signal. When records reach the coordinator by any route (a file over Bluetooth, a USB stick, a later link), one check shows who reached a hospital, who is not accounted for, and which orders came up short.</p>
+    <div class="notice"><strong>Before you lose signal:</strong> open this page once while you still have a connection. After that it opens from the phone itself, even in airplane mode.</div>
+    <div class="grid2">
+      <form id="setup-form" class="card">
+        <h2>Set up this phone</h2>
+        <p class="fine">The coordinator gives every station the same incident code and tag salt. The salt turns triage-tag numbers into codes, so no name or tag number is ever stored.</p>
+        <label>Incident code <input name="incidentId" required placeholder="FLOOD-2026-11-A" autocomplete="off"></label>
+        <label>Tag salt (from the coordinator) <input name="salt" required autocomplete="off"></label>
+        <label>Name of this station <input name="station" required placeholder="medic-team-2" autocomplete="off"></label>
+        <label>What this station does
+          <select name="role">
+            <option value="medic">Field medic (tags casualties)</option>
+            <option value="collection">Casualty collection point</option>
+            <option value="hospital">Hospital</option>
+            <option value="clinic">Clinic (receives vaccines)</option>
+            <option value="store">Medical store</option>
+            <option value="coordinator">Coordinator (checks everything)</option>
+          </select>
+        </label>
+        <label>Hospital station names, comma separated <input name="hospitals" placeholder="district-hospital, field-hospital-1" autocomplete="off"></label>
+        <label>Red casualties should reach a hospital within (minutes) <input name="redLimit" type="number" min="5" value="60"></label>
+        <button class="btn" type="submit">Set up this phone</button>
+      </form>
+      <div class="card">
+        <h2>Just looking?</h2>
+        <p>Load a sample flood incident: three stations, a red casualty who arrives late, a yellow casualty who never reaches a hospital, a short IV-fluid order and a vaccine box that froze. Then open <strong>Check</strong> to see what the coordinator would see.</p>
+        <button id="sample" class="btn ghost" type="button">Load the sample incident</button>
+        <p class="fine">Sample data is made up. This page has not been used in a real response yet.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="main" class="panel" hidden>
+    <div class="who">
+      <div><p class="eyebrow" id="inc-name"></p><h1 id="st-name"></h1><p class="fine" id="st-role"></p></div>
+      <button id="reset" class="btn ghost small-btn" type="button">Start over</button>
+    </div>
+    <p id="next" class="notice next" role="status"></p>
+    <nav class="tabs" aria-label="Sections">
+      <button type="button" data-tab="triage">Triage</button>
+      <button type="button" data-tab="take">Take casualty</button>
+      <button type="button" data-tab="supplies">Supplies</button>
+      <button type="button" data-tab="vaccines">Vaccines</button>
+      <button type="button" data-tab="share">Share</button>
+      <button type="button" data-tab="check">Check</button>
+    </nav>
+    <p id="notice" class="notice" role="status" hidden></p>
+
+    <div id="tab-triage" class="tab card" hidden>
+      <h2>Tag a casualty</h2>
+      <p class="fine">Type the number printed on the physical triage tag. If this phone already holds a triage for that number (its own, or from a records file you added on Share), this becomes a signed re-triage linked to the earlier one. Add the earlier station's file before you re-triage.</p>
+      <form id="f-triage">
+        <label>Triage tag number <input name="tagNumber" required inputmode="numeric" autocomplete="off"></label>
+        <fieldset><legend>Category</legend>
+          <div class="cats">
+            <label class="cat red"><input type="radio" name="category" value="red" required> Red: immediate</label>
+            <label class="cat yellow"><input type="radio" name="category" value="yellow"> Yellow: urgent</label>
+            <label class="cat green"><input type="radio" name="category" value="green"> Green: minor</label>
+            <label class="cat black"><input type="radio" name="category" value="black"> Black: expectant or dead</label>
+          </div>
+        </fieldset>
+        <button class="btn" type="submit">Sign triage record</button>
+      </form>
+      <div id="handover" class="handover" hidden>
+        <h3>Hand over tag <span id="handover-tag"></span></h3>
+        <p class="fine">When this casualty leaves you, the next station takes their records straight from this phone: a QR code to scan, or sound they can hear through the air or over a walkie-talkie. They then sign that they have the casualty.</p>
+        <div class="row"><button id="ho-qr" class="btn" type="button">Show QR code</button><button id="ho-sound" class="btn ghost" type="button">Play as sound</button></div>
+      </div>
+    </div>
+
+    <div id="tab-take" class="tab card" hidden>
+      <h2>Take over a casualty</h2>
+      <p class="fine">The station TAKING the casualty signs. Easiest: scan the code on the other phone, or listen to its sound, and the casualty's records come with it.</p>
+      <div class="row"><button id="take-scan" class="btn" type="button">Scan their QR code</button><button id="take-listen" class="btn ghost" type="button">Listen for their sound</button></div>
+      <div id="pending"></div>
+      <h3>Or type it in</h3>
+      <p class="fine">Use the category written on the tag as you received it. If you change the category, tag them again on the Triage tab first.</p>
+      <form id="f-take">
+        <label>Triage tag number <input name="tagNumber" required inputmode="numeric" autocomplete="off"></label>
+        <label>Handed over by (station name) <input name="from" required autocomplete="off" list="stations"></label>
+        <label>Category on the tag
+          <select name="category"><option>red</option><option>yellow</option><option>green</option><option>black</option></select>
+        </label>
+        <button class="btn" type="submit">Sign: we have this casualty</button>
+      </form>
+    </div>
+
+    <div id="tab-supplies" class="tab card" hidden>
+      <h2>Medical supplies</h2>
+      <div class="grid2">
+        <form id="f-request">
+          <h3>Ask for supplies</h3>
+          <label>Item <input name="item" required placeholder="IV fluids (1 L)" autocomplete="off"></label>
+          <label>How many <input name="qty" type="number" min="1" required></label>
+          <button class="btn" type="submit">Sign request</button>
+        </form>
+        <form id="f-receive">
+          <h3>Supplies arrived</h3>
+          <p class="fine">Only the station that asked can sign what arrived, so a supplier can't mark its own delivery received.</p>
+          <label>For request <select name="requestId" required></select></label>
+          <label>How many arrived <input name="qtyReceived" type="number" min="0" required></label>
+          <label>Delivered by <input name="from" required placeholder="medical-store" autocomplete="off" list="stations"></label>
+          <button class="btn" type="submit">Sign receipt</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="tab-vaccines" class="tab card" hidden>
+      <h2>Vaccine delivery received</h2>
+      <p class="fine">Load the cold box's temperature-logger file (CSV with a time column and a temperature column). The page totals the minutes outside 2 to 8 °C, and counts minutes when the logger was silent too, against a 60-minute budget. Your signed receipt carries the file's fingerprint, so the national store can check it against the raw file later.</p>
+      <form id="f-vax">
+        <label>Shipment number <input name="shipmentId" required autocomplete="off"></label>
+        <label>Vials received <input name="vials" type="number" min="0" required></label>
+        <label>Temperature on arrival (°C) <input name="arrivalTempC" type="number" step="0.1" required></label>
+        <label>Logger file <input name="file" type="file" accept=".csv,text/csv,text/plain"></label>
+        <div id="vax-judge" class="notice" hidden></div>
+        <label>Decision
+          <select name="decision"><option value="release">Release for use</option><option value="quarantine">Quarantine</option></select>
+        </label>
+        <button class="btn" type="submit">Sign vaccine receipt</button>
+      </form>
+    </div>
+
+    <div id="tab-share" class="tab card" hidden>
+      <h2>Move records</h2>
+      <p>Every record is signed, so whoever or whatever carries it can't change it unnoticed. Pick whatever works where you are.</p>
+      <h3>By QR code or sound, phone to phone</h3>
+      <div class="grid2 tight">
+        <label>What to send
+          <select id="send-what"><option value="all">Everything on this phone</option><option value="mine">Only what this phone signed</option></select>
+        </label>
+        <label>Sound type (both phones the same)
+          <select id="speed">
+            <option value="fast">Phone to phone, through the air</option>
+            <option value="fastest">Phone to phone, quiet room (quickest)</option>
+            <option value="dt-fast">Walkie-talkie, AM radio or phone call</option>
+            <option value="dt-normal">Noisy radio link (slowest, sturdiest)</option>
+          </select>
+        </label>
+      </div>
+      <div class="row"><button id="send-qr" class="btn" type="button">Show QR codes</button><button id="send-sound" class="btn ghost" type="button">Play as sound</button></div>
+      <div class="row"><button id="recv-scan" class="btn" type="button">Scan codes</button><button id="recv-listen" class="btn ghost" type="button">Listen</button></div>
+      <p class="fine">How long sound takes for one casualty: about 15 to 25 seconds phone to phone, about 70 seconds over a walkie-talkie, AM radio or phone call, and nearer 2 minutes on the noisy-radio setting. Send casualties by sound; use QR codes or a file for everything else. If the other phone misses a part, play again: it keeps what it already has.</p>
+      <h3>By file</h3>
+      <p class="fine">Bluetooth or Nearby Share, a USB stick, a laptop, email when a link comes back.</p>
+      <div class="row">
+        <button id="save" class="btn" type="button">Save records file</button>
+        <button id="copy" class="btn ghost" type="button">Copy as text</button>
+      </div>
+      <h3>Add records from another phone</h3>
+      <div class="row"><input id="load" type="file" accept=".json,application/json,text/plain" multiple aria-label="Records files"></div>
+      <textarea id="paste" placeholder="Or paste records text here" aria-label="Paste records"></textarea>
+      <div class="row"><button id="add" class="btn ghost" type="button">Add pasted records</button></div>
+      <h3 data-web-only>Pass the kit itself to a phone that never had signal</h3>
+      <p class="fine" data-web-only><a href="/field/kit.html" download="field-health-kit.html">Save the whole kit as one file</a> and send it like any other file. It opens straight from the file in Chrome, Edge or Firefox on a laptop and on most Android phones. iPhones can't run a saved page, so open this page once with signal instead.</p>
+      <h3>Paying a courier with no network</h3>
+      <p class="fine">To pay whoever carried the file, use the <a href="https://dtn.bsvkey.com/radio/">BSVKey offline pay page</a>: it hands over a signed Bitcoin BSV payment by QR code, sound or SMS, and anyone with a link broadcasts it later.</p>
+    </div>
+
+    <div id="tab-check" class="tab" hidden>
+      <div class="card">
+        <h2>Coordinator check</h2>
+        <p class="fine">Runs on every record on this phone. Each station's key comes only from its station card, so add every phone's records file first.</p>
+        <button id="run" class="btn" type="button">Check all records</button>
+      </div>
+      <div id="report"></div>
+    </div>
+
+    <h2 class="recent-head">Records on this phone <span id="count" class="pill"></span></h2>
+    <ul id="recent" class="recent"></ul>
+  </section>
+  <datalist id="stations"></datalist>
+  <div id="xfer" class="xfer" hidden role="dialog" aria-modal="true" aria-labelledby="xfer-title">
+    <div class="xfer-box">
+      <h2 id="xfer-title"></h2>
+      <p id="xfer-status" class="notice"></p>
+      <div id="xfer-qr" class="qr" hidden></div>
+      <video id="xfer-video" playsinline muted hidden></video>
+      <div id="xfer-meter" class="meter" hidden><span></span></div>
+      <div id="xfer-steps" hidden></div>
+      <div class="row"><button id="xfer-again" class="btn" type="button" hidden>Play again</button><button id="xfer-close" class="btn ghost" type="button">Close</button></div>
+    </div>
+  </div>
+</main>
+<footer class="wrap foot fine">Open source: <a href="https://github.com/BSVKey/needs-custody">github.com/BSVKey/needs-custody</a>. Records use the same format as the Node checks in <code>src/medical.mjs</code>. No names or patient details are stored, only salted tag codes.</footer>
+<script src="/field/app.js?v=2"></script>
+</body>
+</html>

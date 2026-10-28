@@ -13,5 +13,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
+      - run: npm ci
+      - run: node bin/build-field.mjs
       - run: node --test
       - run: node demo.mjs
